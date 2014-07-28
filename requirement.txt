@@ -1,0 +1,2 @@
+configman==1.2.6
+rauth==0.7.0

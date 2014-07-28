@@ -1,0 +1,12 @@
+# BitBucket OAuth consumer key
+#bitbucket-consumer-key=a42Tj6eNLdY79tMUq7
+
+# BitBucket OAuth consumer secret
+#bitbucket-consumer-secret=sCyhczbknGsRbZ2pDaT9LXeypEYd95xN
+
+# BitBucket repository
+#bitbucket-repo=mpa
+
+# BitBucket username
+#bitbucket-user=alexbman
+
