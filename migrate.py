@@ -8,7 +8,6 @@ from rauth import OAuth1Service
 from configman import Namespace, ConfigurationManager
 from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 import signal
-import sys
 
 
 def define_config():
@@ -145,6 +144,8 @@ def handle_issues(session, issues):
     rm_issue_url = urlparse.urljoin(rm_root, "/issues.json")
     headers = {'content-type': 'application/json'}
 
+    # Mapping BitBucket issue status to Redmine status
+    # Issue status could be found at http://your-redmine-domain/issue_statuses
     status_dict = {
         'new': 1,
         'open': 2,
@@ -164,8 +165,9 @@ def handle_issues(session, issues):
         #print(resp.content)
         comments = resp.json()
 
+        # Compose the description of the issue with the original user info
         desp = "%s\n \nOriginally reported by %s" % (bb_issue['content'], bb_issue['reported_by']['display_name'])
-        if len(comments) > 0:
+        if len(comments) > 0: # Put the original comments into description
             for c in comments:
                 desp += "\n\n%s\nCommented by %s at %s" % (
                     c['content'], c['author_info']['display_name'], c['utc_updated_on'])
@@ -197,15 +199,11 @@ if __name__ == '__main__':
     bb_user = config['bitbucket-user']
     bb_repo = config['bitbucket-repo']
 
-
     rm_root = config['redmine-root']
     rm_key = config['redmine-apikey']
     rm_project = config['redmine-project-id']
 
-    if bb_consumer_key and bb_consumer_secret and bb_user and bb_repo:
+    if bb_consumer_key and bb_consumer_secret and bb_user and bb_repo and rm_root and rm_key and rm_project:
         load_issues_by_api(bb_consumer_key, bb_consumer_secret, bb_user, bb_repo)
-        #print issue_dict
     else:
-        print("Error BitBucket configure")
-        exit()
-
+        print("Error configuration. All parameters must be set. Run with --help to see all parameters.")

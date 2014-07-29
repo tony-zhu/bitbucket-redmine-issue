@@ -1,12 +1,20 @@
 # BitBucket OAuth consumer key
-#bitbucket-consumer-key=a42Tj6eNLdY79tMUq7
+bitbucket-consumer-key=
 
 # BitBucket OAuth consumer secret
-#bitbucket-consumer-secret=sCyhczbknGsRbZ2pDaT9LXeypEYd95xN
+bitbucket-consumer-secret=
 
 # BitBucket repository
-#bitbucket-repo=mpa
+bitbucket-repo=
 
 # BitBucket username
-#bitbucket-user=alexbman
+bitbucket-user=
 
+# Redmine API key
+redmine-apikey=
+
+# Root url of redmine server
+redmine-root=
+
+# Redmine project id
+redmine-project-id=
