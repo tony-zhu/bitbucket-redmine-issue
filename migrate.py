@@ -1,10 +1,14 @@
 import getopt
 import os
+from datetime import datetime
 import urlparse
+import json
+import requests
 from rauth import OAuth1Service
 from configman import Namespace, ConfigurationManager
 from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
 import signal
+import sys
 
 
 def define_config():
@@ -27,7 +31,33 @@ def define_config():
     definition.add_option(
         name='bitbucket-repo',
         doc='BitBucket repository',
+        short_form='p'
+    )
+
+    definition.add_option(
+        name='redmine-root',
+        doc='Root url of redmine server',
         short_form='r'
+    )
+    definition.add_option(
+        name='redmine-apikey',
+        doc='Root url of redmine server',
+        short_form='a'
+    )
+    definition.add_option(
+        name='redmine-root',
+        doc='Root url of redmine server',
+        short_form='r'
+    )
+    definition.add_option(
+        name='redmine-apikey',
+        doc='Redmine API key',
+        short_form='a'
+    )
+    definition.add_option(
+        name='redmine-project-id',
+        doc='Redmine project id',
+        short_form='i'
     )
     return definition
 
@@ -60,14 +90,24 @@ def load_issues_by_api(consumer_key, consumer_secret, bb_user, bb_repo):
                                              data={'oauth_verifier': oauth_verifier})
 
             url = "https://bitbucket.org/api/1.0/repositories/%s/%s/issues/" % (bb_user, bb_repo)
-            resp = session.get(url)
 
-            handle_json(resp.json())
+            start = 0
+            limit = 50
+            while True:
+                params = {'start': start, 'limit': limit}
+                resp = session.get(url, params=params)
+                json_data = resp.json()
+                count = json_data['count']
+                handle_issues(session, json_data['issues'])
+                start += limit
+                if start >= count:
+                    break
+
+            print("Finished processing.")
             signal.alarm(signal.SIGINT)
 
     if bb_user is None or bb_repo is None:
         print("Bitbucket not set up!")
-
 
     bitbucket = OAuth1Service(
         name='bitbucket',
@@ -94,11 +134,55 @@ def load_issues_by_api(consumer_key, consumer_secret, bb_user, bb_repo):
         server.socket.close()
 
 
-def handle_json(json):
-    for issue in json['issues']:
-        print issue['title']
+def convert_date(in_string):
+    from_format = '%Y-%m-%dT%H:%M:%S.%f'
+    to_format = "%Y-%m-%d"
+    t = datetime.strptime(in_string, from_format)
+    return t.strftime(to_format)
 
-    print("Finished handling")
+
+def handle_issues(session, issues):
+    rm_issue_url = urlparse.urljoin(rm_root, "/issues.json")
+    headers = {'content-type': 'application/json'}
+
+    status_dict = {
+        'new': 1,
+        'open': 2,
+        'resolved': 3,
+        'on hold': 2,
+        'invalid': 5,
+        'duplicate': 5,
+        'wontfix': 6,
+        'closed': 3,
+    }
+
+    for bb_issue in issues:
+        #print(i)
+        i_id = bb_issue['local_id']
+        url = "https://bitbucket.org/api/1.0/repositories/%s/%s/issues/%s/comments" % (bb_user, bb_repo, i_id)
+        resp = session.get(url)
+        #print(resp.content)
+        comments = resp.json()
+
+        desp = "%s\n \nOriginally reported by %s" % (bb_issue['content'], bb_issue['reported_by']['display_name'])
+        if len(comments) > 0:
+            for c in comments:
+                desp += "\n\n%s\nCommented by %s at %s" % (
+                    c['content'], c['author_info']['display_name'], c['utc_updated_on'])
+
+        issue = {
+            'issue': {
+                'project_id': rm_project,
+                'status_id': status_dict[bb_issue['status']],
+                'subject': bb_issue['title'],
+                'description': desp,
+                'start_date': convert_date(bb_issue['created_on']),
+            }
+        }
+        json_data = json.dumps(issue)
+        resp = requests.post(rm_issue_url, params={'key': rm_key}, data=json_data, headers=headers)
+        print(resp.status_code)
+        print(resp.content)
 
 
 if __name__ == '__main__':
@@ -112,6 +196,11 @@ if __name__ == '__main__':
     bb_consumer_secret = config['bitbucket-consumer-secret']
     bb_user = config['bitbucket-user']
     bb_repo = config['bitbucket-repo']
+
+
+    rm_root = config['redmine-root']
+    rm_key = config['redmine-apikey']
+    rm_project = config['redmine-project-id']
 
     if bb_consumer_key and bb_consumer_secret and bb_user and bb_repo:
         load_issues_by_api(bb_consumer_key, bb_consumer_secret, bb_user, bb_repo)
